@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Consulta BIOS</title>
+
+<style>
+    body { font-family: Arial; background:#f4f4f4; padding:20px; }
+    
+    /* Container Flex */
+    .container {
+        display: flex;
+        gap: 20px;
+        align-items: flex-start;
+    }
+
+    /* Tabela */
+    table { width:100%; border-collapse:collapse; background:white; }
+    th, td { border:1px solid #ddd; padding:8px; }
+    th { background:#333; color:white; }
+
+    /* Box da tabela e PDF */
+    .tabela-box { flex: 2; }
+    .pdf-box { flex: 1; background:white; padding:15px; border:1px solid #ddd; height: fit-content; }
+
+    /* Pesquisa */
+    #searchBox { padding:10px; width:100%; margin-bottom:15px; font-size:16px; }
+    a { text-decoration:none; color:blue; font-weight:bold; }
+</style>
+
+<!-- Aqui carregamos o CSV via arquivo JS -->
+<script src="bios.js"></script>
+
+</head>
+<body>
+
+<h2>Consulta de BIOS</h2>
+<h4>Digite o SKU para encotrar todas as BIOS correspondentes.</h4>
+
+<div class="container">
+    <div class="tabela-box">
+        <input type="text" id="searchBox" placeholder="Pesquisar..." onkeyup="filtrarTabela()">
+
+        <table id="tabela">
+            <thead>
+                <tr>
+                    <th>SKU</th>
+                    <th>Descricao SKU</th>
+                    <th>PEP</th>
+                    <th>Cod.</th>
+                    <th>Desc. BIOS</th>
+                    <th>PLM</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <div class="pdf-box">
+        <h3>PDF Completo de BIOS</h3>
+        <a href="20251106_COBERTURA_BIOS_UNIFICADA_PROJETOS.pdf" target="_blank">📄 Abrir PDF</a>
+    </div>
+</div>
+
+<script>
+// Carrega o texto do CSV vindo do arquivo bios.js
+const csv = window.BIOS_DATA.trim();
+
+processarCSV(csv);
+
+// Processa CSV TAB
+function processarCSV(csv) {
+    const linhas = csv.split(/\r?\n/);
+    const tbody = document.querySelector("#tabela tbody");
+
+    linhas.slice(1).forEach(linha => {
+        const cols = linha.split("\t");
+        if (cols.length < 6) return;
+
+        const tr = document.createElement("tr");
+        cols.slice(0, 6).forEach(c => {
+            const td = document.createElement("td");
+            td.textContent = c.trim();
+            tr.appendChild(td);
+        });
+
+        tbody.appendChild(tr);
+    });
+}
+
+// Filtro
+function filtrarTabela() {
+    const filtro = document.querySelector("#searchBox").value.toLowerCase();
+    const linhas = document.querySelectorAll("#tabela tbody tr");
+
+    linhas.forEach(l => {
+        l.style.display = l.textContent.toLowerCase().includes(filtro) ? "" : "none";
+    });
+}
+</script>
+
+</body>
+</html>
