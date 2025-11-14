@@ -5,55 +5,77 @@
 <title>Consulta BIOS</title>
 
 <style>
-    body { font-family: Arial; background:#f4f4f4; padding:20px; }
+    body { font-family: Arial; background:#f4f4f4; padding:20px; margin:0; }
     
-    /* Container Flex */
     .container {
         display: flex;
         gap: 20px;
         align-items: flex-start;
     }
 
-    /* Tabela */
-    table { width:100%; border-collapse:collapse; background:white; }
-    th, td { border:1px solid #ddd; padding:8px; }
-    th { background:#333; color:white; }
-
-    /* Box da tabela e PDF */
     .tabela-box { flex: 2; }
     .pdf-box { flex: 1; background:white; padding:15px; border:1px solid #ddd; height: fit-content; }
 
-    /* Pesquisa */
     #searchBox { padding:10px; width:100%; margin-bottom:15px; font-size:16px; }
+
+    .tabela-wrapper { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; background:white; }
+    th, td { border:1px solid #ddd; padding:8px; }
+    th { background:#333; color:white; text-align:left; }
+
+    #detalhesPLM {
+        margin-top: 20px;
+        background: #fff;
+        padding: 10px;
+        border: 1px solid #ddd;
+    }
+
+    #plmDisplay {
+        margin-top: 10px;
+        font-weight: bold;
+    }
+
     a { text-decoration:none; color:blue; font-weight:bold; }
+
+    @media (max-width: 768px) {
+        .container { flex-direction: column; }
+        .tabela-box, .pdf-box { flex:1; width:100%; }
+        #searchBox { font-size:14px; padding:8px; }
+    }
 </style>
 
-<!-- Aqui carregamos o CSV via arquivo JS -->
 <script src="bios.js"></script>
+<script src="plm_descricao.js"></script>
+<script src="detalhes_plm.js"></script>
 
 </head>
 <body>
 
 <h2>Consulta de BIOS</h2>
-<h4>Digite o SKU para encontrar todas as BIOS correspondentes.</h4>
+<h4>Digite o SKU ou Cód da PLM (Np11G-*) para encontrar todas as BIOS correspondentes.</h4>
 
 <div class="container">
     <div class="tabela-box">
-        <input type="text" id="searchBox" placeholder="Pesquisar..." onkeyup="filtrarTabela()">
+        <input type="text" id="searchBox" placeholder="Pesquisar por SKU..." onkeyup="filtrarTabela()">
 
-        <table id="tabela">
-            <thead>
-                <tr>
-                    <th>SKU</th>
-                    <th>Descricao SKU</th>
-                    <th>PEP</th>
-                    <th>Cod.</th>
-                    <th>Desc. BIOS</th>
-                    <th>PLM</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
+        <div id="plmDisplay"></div>
+        <div id="detalhesPLM"></div>
+
+        <div class="tabela-wrapper">
+            <table id="tabela">
+                <thead>
+                    <tr>
+                        <th>SKU</th>
+                        <th>Descricao SKU</th>
+                        <th>PEP</th>
+                        <th>Cod.</th>
+                        <th>Desc. BIOS</th>
+                        <th>PLM</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
     </div>
 
     <div class="pdf-box">
@@ -63,12 +85,9 @@
 </div>
 
 <script>
-// Carrega o texto do CSV vindo do arquivo bios.js
 const csv = window.BIOS_DATA.trim();
-
 processarCSV(csv);
 
-// Processa CSV TAB
 function processarCSV(csv) {
     const linhas = csv.split(/\r?\n/);
     const tbody = document.querySelector("#tabela tbody");
@@ -78,24 +97,69 @@ function processarCSV(csv) {
         if (cols.length < 6) return;
 
         const tr = document.createElement("tr");
-        cols.slice(0, 6).forEach(c => {
+        cols.slice(0,6).forEach(c => {
             const td = document.createElement("td");
             td.textContent = c.trim();
             tr.appendChild(td);
         });
-
         tbody.appendChild(tr);
     });
 }
 
-// Filtro
 function filtrarTabela() {
-    const filtro = document.querySelector("#searchBox").value.toLowerCase();
+    const filtro = document.querySelector("#searchBox").value.trim();
     const linhas = document.querySelectorAll("#tabela tbody tr");
+    const plmsEncontrados = new Set();
+    let detalhesHTML = "";
 
-    linhas.forEach(l => {
-        l.style.display = l.textContent.toLowerCase().includes(filtro) ? "" : "none";
+    // Validação SKU: 7 dígitos ou 8 dígitos NP11G
+    const ehSKUValido7 = /^\d{7}$/.test(filtro);
+    const ehSKUValido8 = /^\d{8}$/.test(filtro);
+    if (!ehSKUValido7 && !ehSKUValido8) {
+        linhas.forEach(linha => linha.style.display = "none");
+        document.getElementById("plmDisplay").textContent = "";
+        document.getElementById("detalhesPLM").innerHTML = "";
+        return;
+    }
+
+    linhas.forEach(linha => {
+        const sku = linha.cells[0].textContent.trim();
+        const plm = linha.cells[linha.cells.length-1].textContent.trim();
+
+        if (sku === filtro) {
+            linha.style.display = "";
+
+            // Define o título a exibir do PLM
+            let plmExibir = (plm === "NP11G-E" || plm === "NP11G-E2") ? "NP11G-*" : plm;
+
+            if (!plmsEncontrados.has(plmExibir)) {
+                plmsEncontrados.add(plmExibir);
+
+                let detalhesPLM = "";
+                if (plm === "NP11G-E" || plm === "NP11G-E2") {
+                    detalhesPLM = window.PLM_DESCRICOES["NP11G-*"];
+                } else {
+                    if (window.PLM_DESCRICOES && window.PLM_DESCRICOES[plm]) {
+                        detalhesPLM = window.PLM_DESCRICOES[plm];
+                    }
+                    if (window.DETALHES_PLM && window.DETALHES_PLM[plm]) {
+                        detalhesPLM += (detalhesPLM ? "<br>" : "") + window.DETALHES_PLM[plm];
+                    }
+                }
+
+                if (detalhesPLM) {
+                    detalhesHTML += `<strong>${plmExibir}:</strong> ${detalhesPLM}<br>`;
+                }
+            }
+
+        } else {
+            linha.style.display = "none";
+        }
     });
+
+    // Atualiza divs
+    document.getElementById("plmDisplay").textContent = plmsEncontrados.size > 0 ? "PLMs encontrados: " + Array.from(plmsEncontrados).join(", ") : "";
+    document.getElementById("detalhesPLM").innerHTML = detalhesHTML || "";
 }
 </script>
 
